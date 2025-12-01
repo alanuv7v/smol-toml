@@ -47,11 +47,15 @@ function isArrayOfTables (obj: any[]) {
 	return obj.length != 0
 }
 
-function formatString (s: string) {
-	return JSON.stringify(s).replace(/\x7f/g, '\\u007f')
+function formatString(s: string, max_single_line_str_length = 50) {
+    let escaped = JSON.stringify(s).replace(/\x7f/g, '\\u007f')
+    if (escaped.length > max_single_line_str_length) {
+        return `""` + escaped.replace(/\\n/g, /\n/) + `""`;
+    }
+    return escaped
 }
 
-function stringifyValue (val: any, type: ExtendedType, depth: number, numberAsFloat: boolean) {
+function stringifyValue (val: any, type: ExtendedType, depth: number, numberAsFloat: boolean, max_songle_line_str_length: number) {
 	if (depth === 0) {
 		throw new Error('Could not stringify the object: maximum object depth exceeded')
 	}
@@ -69,7 +73,7 @@ function stringifyValue (val: any, type: ExtendedType, depth: number, numberAsFl
 	}
 
 	if (type === 'string') {
-		return formatString(val)
+		return formatString(val, max_songle_line_str_length)
 	}
 
 	if (type === 'date') {
@@ -81,15 +85,15 @@ function stringifyValue (val: any, type: ExtendedType, depth: number, numberAsFl
 	}
 
 	if (type === 'object') {
-		return stringifyInlineTable(val, depth, numberAsFloat)
+		return stringifyInlineTable(val, depth, numberAsFloat, max_songle_line_str_length)
 	}
 
 	if (type === 'array') {
-		return stringifyArray(val, depth, numberAsFloat)
+		return stringifyArray(val, depth, numberAsFloat, max_songle_line_str_length)
 	}
 }
 
-function stringifyInlineTable (obj: any, depth: number, numberAsFloat: boolean) {
+function stringifyInlineTable (obj: any, depth: number, numberAsFloat: boolean, max_songle_line_str_length) {
 	let keys = Object.keys(obj)
 	if (keys.length === 0) return '{}'
 
@@ -100,13 +104,13 @@ function stringifyInlineTable (obj: any, depth: number, numberAsFloat: boolean) 
 
 		res += BARE_KEY.test(k) ? k : formatString(k)
 		res += ' = '
-		res += stringifyValue(obj[k], extendedTypeOf(obj[k]), depth - 1, numberAsFloat)
+		res += stringifyValue(obj[k], extendedTypeOf(obj[k]), depth - 1, numberAsFloat, max_songle_line_str_length)
 	}
 
 	return res + ' }'
 }
 
-function stringifyArray (array: any[], depth: number, numberAsFloat: boolean) {
+function stringifyArray (array: any[], depth: number, numberAsFloat: boolean, max_songle_line_str_length) {
 	if (array.length === 0) return '[]'
 
 	let res = '[ '
@@ -116,13 +120,13 @@ function stringifyArray (array: any[], depth: number, numberAsFloat: boolean) {
 			throw new TypeError('arrays cannot contain null or undefined values')
 		}
 
-		res += stringifyValue(array[i], extendedTypeOf(array[i]), depth - 1, numberAsFloat)
+		res += stringifyValue(array[i], extendedTypeOf(array[i]), depth - 1, numberAsFloat, max_songle_line_str_length)
 	}
 
 	return res + ' ]'
 }
 
-function stringifyArrayTable (array: any[], key: string, depth: number, numberAsFloat: boolean) {
+function stringifyArrayTable (array: any[], key: string, depth: number, numberAsFloat: boolean, max_songle_line_str_length) {
 	if (depth === 0) {
 		throw new Error('Could not stringify the object: maximum object depth exceeded')
 	}
@@ -130,13 +134,13 @@ function stringifyArrayTable (array: any[], key: string, depth: number, numberAs
 	let res = ''
 	for (let i = 0; i < array.length; i++) {
 		res += `${res && '\n'}[[${key}]]\n`
-		res += stringifyTable(0, array[i], key, depth, numberAsFloat)
+		res += stringifyTable(0, array[i], key, depth, numberAsFloat, max_songle_line_str_length)
 	}
 
 	return res
 }
 
-function stringifyTable (tableKey: string | 0, obj: any, prefix: string, depth: number, numberAsFloat: boolean) {
+function stringifyTable (tableKey: string | 0, obj: any, prefix: string, depth: number, numberAsFloat: boolean, max_songle_line_str_length) {
 	if (depth === 0) {
 		throw new Error('Could not stringify the object: maximum object depth exceeded')
 	}
@@ -156,14 +160,14 @@ function stringifyTable (tableKey: string | 0, obj: any, prefix: string, depth: 
 			let key = BARE_KEY.test(k) ? k : formatString(k)
 
 			if (type === 'array' && isArrayOfTables(obj[k])) {
-				tables += (tables && '\n') + stringifyArrayTable(obj[k], prefix ? `${prefix}.${key}` : key, depth - 1, numberAsFloat)
+				tables += (tables && '\n') + stringifyArrayTable(obj[k], prefix ? `${prefix}.${key}` : key, depth - 1, numberAsFloat, max_songle_line_str_length)
 			} else if (type === 'object') {
 				let tblKey = prefix ? `${prefix}.${key}` : key
-				tables += (tables && '\n') + stringifyTable(tblKey, obj[k], tblKey, depth - 1, numberAsFloat)
+				tables += (tables && '\n') + stringifyTable(tblKey, obj[k], tblKey, depth - 1, numberAsFloat, max_songle_line_str_length)
 			} else {
 				preamble += key
 				preamble += ' = '
-				preamble += stringifyValue(obj[k], type, depth, numberAsFloat)
+				preamble += stringifyValue(obj[k], type, depth, numberAsFloat, max_songle_line_str_length)
 				preamble += '\n'
 			}
 		}
@@ -179,13 +183,13 @@ function stringifyTable (tableKey: string | 0, obj: any, prefix: string, depth: 
 
 export function stringify (
 	obj: any,
-	{ maxDepth = 1000, numbersAsFloat = false }: { maxDepth?: number, numbersAsFloat?: boolean } = {},
+	{ maxDepth = 1000, numbersAsFloat = false, max_songle_line_str_length = 50 }: { maxDepth?: number, numbersAsFloat?: boolean, max_songle_line_str_length?: number } = {},
 ) {
 	if (extendedTypeOf(obj) !== 'object') {
 		throw new TypeError('stringify can only be called with an object')
 	}
 
-	let str = stringifyTable(0, obj, '', maxDepth, numbersAsFloat)
+	let str = stringifyTable(0, obj, '', maxDepth, numbersAsFloat, max_songle_line_str_length)
 	if (str[str.length - 1] !== '\n') return str + '\n'
 	return str
 }

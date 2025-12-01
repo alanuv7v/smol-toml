@@ -1,5 +1,9 @@
 {
-	"name": "smol-toml",
+	"name": "@asdfpo/asdf",
+	"private": false,
+  "publishConfig": {
+    "access": "restricted"
+  },
 	"license": "BSD-3-Clause",
 	"version": "1.5.2",
 	"description": "A small, fast, and correct TOML parser/serializer",

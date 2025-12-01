@@ -4,6 +4,8 @@
 		"@tsconfig/node-lts/tsconfig.json"
 	],
 	"compilerOptions": {
+		"target": "esnext",              // or whatever you need
+    "lib": ["esnext"],
 		"declaration": true,
 		"isolatedModules": false,
 		"preserveConstEnums": false,
